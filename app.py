@@ -52,13 +52,19 @@ if 'extracted_data' not in st.session_state:
 try:
     api_key = st.secrets["ANTHROPIC_API_KEY"]
 except:
-    api_key = os.getenv('ANTHROPIC_API_KEY')
+    api_key = os.getenv('OGAR_API_KEY')
 
 if not api_key:
-    st.error("⚠️ Clé API Anthropic non trouvée. Veuillez configurer ANTHROPIC_API_KEY dans les secrets Streamlit ou comme variable d'environnement")
+    st.error("⚠️ Service temporairement indisponible. Veuillez contacter l'administrateur.")
+    st.info("💡 Pour assistance, contactez le support technique JABE.")
     client = None
 else:
-    client = Anthropic(api_key=api_key)
+    try:
+        client = Anthropic(api_key=api_key)
+    except Exception as e:
+        st.error("❌ Connexion au service impossible. Veuillez réessayer dans quelques instants.")
+        st.info("🔄 Actualisez la page ou contactez le support si le problème persiste.")
+        client = None
 
 def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed)
@@ -158,7 +164,20 @@ def extract_data_from_image(image, prompt="Extract all relevant fields and data 
             else:
                 return {"raw_text": result}
     except Exception as e:
-        st.error(f"Error processing image: {str(e)}")
+        error_msg = str(e).lower()
+        if "rate" in error_msg and "limit" in error_msg:
+            st.error("⏱️ Trop de demandes simultanées. Veuillez patienter quelques secondes avant de réessayer.")
+            st.info("💡 Astuce: Traitez vos documents par petits groupes pour éviter ce message.")
+        elif "timeout" in error_msg:
+            st.error("⏰ Le traitement a pris trop de temps. Veuillez réessayer avec un document plus léger.")
+        elif "authentication" in error_msg or "unauthorized" in error_msg:
+            st.error("🔑 Accès non autorisé. Veuillez contacter votre administrateur.")
+        elif "network" in error_msg or "connection" in error_msg:
+            st.error("🌐 Problème de connexion internet. Vérifiez votre connexion et réessayez.")
+        else:
+            st.error("❌ Impossible de traiter le document. Veuillez vérifier que le fichier est lisible et réessayer.")
+            if st.checkbox("Afficher les détails techniques", key=f"error_details_{id(e)}"):
+                st.code(f"Erreur technique: {str(e)}")
         return None
 
 def pdf_to_images(pdf_file):
@@ -168,7 +187,8 @@ def pdf_to_images(pdf_file):
         images = pdf2image.convert_from_bytes(pdf_bytes, dpi=200)
         return images
     except Exception as e:
-        st.error(f"Error converting PDF: {str(e)}")
+        st.error("📄 Impossible de lire le fichier PDF.")
+        st.info("💡 Assurez-vous que le fichier n'est pas protégé par mot de passe et qu'il n'est pas endommagé.")
         return []
 
 def signup_page():
@@ -207,30 +227,25 @@ def login_page():
     st.title("🔐 Login")
     
     with st.form("login_form"):
-        username = st.text_input("Username")
+        username = st.text_input("Username", value="User")
         password = st.text_input("Password", type="password")
         
         submit = st.form_submit_button("Login", use_container_width=True)
         
         if submit:
-            if username in st.session_state.users:
-                if verify_password(password, st.session_state.users[username]['password']):
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    st.success("Login successful!")
-                    st.rerun()
-                else:
-                    st.error("Invalid password")
-            else:
-                st.error("Username not found")
+            # Direct login without credential verification
+            st.session_state.logged_in = True
+            st.session_state.username = username if username else "User"
+            st.success("Login successful!")
+            st.rerun()
 
 def main_app():
     # Sidebar with logo and user info
     with st.sidebar:
-        # Display logo
+        # Display OGAR logo
         try:
-            logo = Image.open("ogar_logo.png")
-            st.image(logo, use_column_width=True)
+            ogar_logo = Image.open("ogar_logo.png")
+            st.image(ogar_logo, use_column_width=True)
         except:
             pass
         
@@ -269,8 +284,8 @@ def main_app():
     col_logo, col_title = st.columns([1, 4])
     with col_logo:
         try:
-            logo = Image.open("ogar_logo.png")
-            st.image(logo, width=100)
+            ogar_logo = Image.open("ogar_logo.png")
+            st.image(ogar_logo, width=100)
         except:
             st.markdown("# 🏢 OGAR")
     
@@ -306,7 +321,10 @@ def main_app():
     
     # Define the default prompt internally (hidden from user)
     default_prompt = """Extrais TOUS les champs de ce document d'assurance OGAR en français.
-Retourne un objet JSON détaillé avec la structure suivante:
+Retourne un objet JSON détaillé avec la structure suivante 
+
+(POINT D'ATTENTION !!! Les champs peuvent légèrement varier dans le nom/désignation/intitulé/description/etc. 
+Assure-toi de bien extraire tous les champs possibles où les libellées ont la même connotation/sens/signification:
 
 {
   "informations_compagnie": {
@@ -407,7 +425,11 @@ Retourne un objet JSON détaillé avec la structure suivante:
 }
 
 Extrais chaque champ visible dans le document. Si un champ est vide ou non visible, utilise une chaîne vide "". 
-Sois précis et exhaustif. N'oublie aucun champ."""
+Sois précis et exhaustif. N'oublie aucun champ.
+
+DANS LE CAS OU LES INTITULES DIFFERENT FAIT DES CORRESPONDANCES logiques entre les champs pour retrouver la valeur correspondante !!! 
+
+"""
     
     if uploaded_files:
         if st.button("🚀 Extraire les données", type="primary", use_container_width=True):
@@ -534,6 +556,16 @@ Sois précis et exhaustif. N'oublie aucun champ."""
             if st.button("🗑️ Effacer les données", use_container_width=True):
                 st.session_state.extracted_data = []
                 st.rerun()
+    
+    # Add JABE logo at bottom right of main page
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    _, _, _, col_jabe_bottom = st.columns([3, 1, 1, 1])
+    with col_jabe_bottom:
+        try:
+            jabe_logo = Image.open("JABE_LOGO.jpg")
+            st.image(jabe_logo, width=80)
+        except:
+            pass
 
 def main():
     if 'page' not in st.session_state:
@@ -542,10 +574,10 @@ def main():
     if not st.session_state.logged_in:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            # Display logo at the top of login/signup page
+            # Display OGAR logo at the top of login/signup page
             try:
-                logo = Image.open("ogar_logo.png")
-                st.image(logo, use_column_width=True)
+                ogar_logo = Image.open("ogar_logo.png")
+                st.image(ogar_logo, use_column_width=True)
             except:
                 st.markdown("# 🏢 OGAR")
             
@@ -560,6 +592,16 @@ def main():
             
             with tab2:
                 signup_page()
+            
+            # Add JABE logo at bottom right
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            _, _, col_jabe = st.columns([2, 1, 1])
+            with col_jabe:
+                try:
+                    jabe_logo = Image.open("JABE_LOGO.jpg")
+                    st.image(jabe_logo, width=80)
+                except:
+                    pass
     else:
         main_app()
 
