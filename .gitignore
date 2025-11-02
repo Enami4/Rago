@@ -67,6 +67,7 @@ appbis.py
 *.jpg
 *.jpeg
 !ogar_logo.png
+!JABE_LOGO.jpg
 uploaded_files/
 temp_files/
 extracted_data/
