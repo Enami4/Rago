@@ -8,12 +8,17 @@ import base64
 import json
 from datetime import datetime
 import bcrypt
-from dotenv import load_dotenv
 import os
 from anthropic import Anthropic
 from streamlit_option_menu import option_menu
 
-load_dotenv()
+# Try to load .env file for local development
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed (likely in production)
+    pass
 
 st.set_page_config(
     page_title="Document OCR Extractor",
@@ -42,9 +47,15 @@ if 'extracted_data' not in st.session_state:
     st.session_state.extracted_data = []
 
 # Initialize Anthropic client with error handling
-api_key = os.getenv('OGAR_API_KEY')
+# Try to get from Streamlit secrets first (for deployment)
+# Fall back to environment variable (for local development)
+try:
+    api_key = st.secrets["ANTHROPIC_API_KEY"]
+except:
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+
 if not api_key:
-    st.error("⚠️ Clé API Anthropic non trouvée. Veuillez configurer OGAR_API_KEY dans le fichier .env")
+    st.error("⚠️ Clé API Anthropic non trouvée. Veuillez configurer ANTHROPIC_API_KEY dans les secrets Streamlit ou comme variable d'environnement")
     client = None
 else:
     client = Anthropic(api_key=api_key)

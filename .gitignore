@@ -59,3 +59,55 @@ MANIFEST
 
 # pyenv
 .python-version
+
+# Application specific
+appbis.py
+*.pdf
+*.png
+*.jpg
+*.jpeg
+!ogar_logo.png
+uploaded_files/
+temp_files/
+extracted_data/
+output/
+exports/
+
+# Streamlit cache
+.streamlit/
+streamlit-data/
+
+# Excel/CSV files
+*.xlsx
+*.xls
+*.csv
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OCR related temporary files
+tessdata/
+poppler*/
+
+# Session data
+sessions/
+*.session
+
+# User credentials (if stored locally)
+users.json
+credentials.json
+
+# API keys and secrets
+api_keys.txt
+secrets.txt
+*.key
+
+# WSL specific
+*.lnk
